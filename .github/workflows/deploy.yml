@@ -24,19 +24,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      - name: Download previous artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: ./_site
+        continue-on-error: true
       - name: Build site structure
         run: |
-          # 1. Создаем корневую папку для публикации
-          mkdir -p _site
-          
-          # 2. Создаем папку для текущей версии внутри папки для публикации
+          # 1. Создаем папку для ТЕКУЩЕЙ версии внутри '_site'
+          # (сама папка '_site' уже существует благодаря шагу скачивания).
           mkdir -p _site/${{ github.ref_name }}
           
-          # 3. КОПИРУЕМ (не перемещаем) файлы сайта в папку с версией
+          # 2. Копируем файлы сайта в папку с новой версией.
           cp -r index.html ru en _site/${{ github.ref_name }}/
           
-          # 4. Генерируем главный index.html со списком версий ПРЯМО в папку для публикации
+          # 3. Перезаписываем главный index.html, чтобы он содержал ссылки на ВСЕ версии, включая новую.
           echo "<h1>Версии сайта:</h1>" > _site/index.html
           echo "<ul>" >> _site/index.html
           gh release list --json tagName --jq '.[] | "<li><a href=\"\(.tagName)/index.html\">\(.tagName)</a></li>"' >> _site/index.html

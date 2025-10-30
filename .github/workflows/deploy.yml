@@ -1,38 +1,39 @@
 name: Deploy to GitHub Pages
 
-# Триггер для запуска: создание нового релиза
 on:
   release:
     types: [published]
-  # Также добавляем кнопку для ручного запуска
   workflow_dispatch:
 
-# Устанавливаем права доступа для воркфлоу, чтобы он мог выполнять деплой
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Добавляем новую секцию для управления параллельными запусками
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+          
     runs-on: ubuntu-latest
     steps:
-      # Шаг 1: Скачиваем исходный код из репозитория
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Шаг 2: Настраиваем окружение для GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # Шаг 3: Собираем статические файлы в артефакт
-      # path: '.' означает, что мы берем все файлы из корня проекта
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
 
-      # Шаг 4: Развертываем (деплоим) артефакт на GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

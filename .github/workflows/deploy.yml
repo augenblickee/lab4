@@ -25,25 +25,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # github.ref_name содержит имя тега нашего релиза (например, "v1.0")
-      - name: Create version directory
-        run: mkdir -p ${{ github.ref_name }}
-
-      # Мы копируем все наши HTML-файлы и папки ru/en в новую директорию
-      - name: Move site files into version directory
+      - name: Build site structure
         run: |
-          mv index.html ${{ github.ref_name }}/
-          mv ru ${{ github.ref_name }}/
-          mv en ${{ github.ref_name }}/
-
-      # Этот шаг будет генерировать страницу со ссылками на все опубликованные версии
-      # Мы используем 'gh api' для получения списка всех релизов
-      - name: Build index page with links to all versions
-        run: |
-          echo "<h1>Версии сайта:</h1>" > index.html
-          echo "<ul>" >> index.html
-          gh release list --json tagName --jq '.[] | "<li><a href=\"\(.tagName)/index.html\">\(.tagName)</a></li>"' >> index.html
-          echo "</ul>" >> index.html
+          # 1. Создаем корневую папку для публикации
+          mkdir -p _site
+          
+          # 2. Создаем папку для текущей версии внутри папки для публикации
+          mkdir -p _site/${{ github.ref_name }}
+          
+          # 3. КОПИРУЕМ (не перемещаем) файлы сайта в папку с версией
+          cp -r index.html ru en _site/${{ github.ref_name }}/
+          
+          # 4. Генерируем главный index.html со списком версий ПРЯМО в папку для публикации
+          echo "<h1>Версии сайта:</h1>" > _site/index.html
+          echo "<ul>" >> _site/index.html
+          gh release list --json tagName --jq '.[] | "<li><a href=\"\(.tagName)/index.html\">\(.tagName)</a></li>"' >> _site/index.html
+          echo "</ul>" >> _site/index.html
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
@@ -53,8 +50,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Теперь мы загружаем ВСЕ содержимое, включая новую корневую index.html и папки с версиями
-          path: '.'
+          path: './_site'
 
       - name: Deploy to GitHub Pages
         id: deployment

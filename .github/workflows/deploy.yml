@@ -6,57 +6,41 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  # Права на запись нужны, чтобы экшен мог делать коммиты в ветку gh-pages
+  contents: write
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      # Шаг 1: Скачиваем исходный код из ветки main
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Download previous build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: site-build
-          path: ./_site
-        continue-on-error: true
-
-      - name: Build site structure
+      # Шаг 2: Создаем папку для сборки и копируем туда файлы ТЕКУЩЕЙ версии
+      - name: Build current version folder
         run: |
-          mkdir -p _site/${{ github.ref_name }}
-          cp -r index.html ru en _site/${{ github.ref_name }}/
-          echo "<h1>Версии сайта:</h1>" > _site/index.html
-          echo "<ul>" >> _site/index.html
-          gh release list --json tagName --jq '.[] | "<li><a href=\"\(.tagName)/index.html\">\(.tagName)</a></li>"' >> _site/index.html
-          echo "</ul>" >> _site/index.html
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Upload build artifact for next run
-        uses: actions/upload-artifact@v4
+          # Получаем имя тега релиза (например, v1.6)
+          VERSION=${GITHUB_REF##*/}
+          # Создаем папку для сборки и папку для версии внутри нее
+          mkdir -p build/$VERSION
+          # Копируем сайт в папку версии
+          cp -r en ru index.html build/$VERSION/
+      
+      # Шаг 3: Разворачиваем сайт в ветку gh-pages
+      # Этот экшен сделает все за нас: скачает ветку gh-pages, добавит
+      # в нее наши новые файлы, сгенерирует index.html и запушит обратно.
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: site-build
-          path: ./_site
-          
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages artifact for current deployment
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './_site'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          # Указываем, откуда брать файлы для публикации
+          publish_dir: ./build
+          # ВАЖНО: Сохраняем все старые файлы в ветке
+          keep_files: true
+          # Генерируем новый index.html со списком всех папок (версий)
+          # Это встроенная функция экшена, очень удобно!
+          enable_jekyll: true
+          # Сообщение для коммита
+          commit_message: "Deploy release ${{ github.ref_name }}"

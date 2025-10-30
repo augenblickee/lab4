@@ -24,22 +24,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Download previous artifact
+
+      - name: Download previous build artifact
         uses: actions/download-artifact@v4
         with:
-          name: github-pages
+          name: site-build
           path: ./_site
         continue-on-error: true
+
       - name: Build site structure
         run: |
-          # 1. Создаем папку для ТЕКУЩЕЙ версии внутри '_site'
-          # (сама папка '_site' уже существует благодаря шагу скачивания).
           mkdir -p _site/${{ github.ref_name }}
-          
-          # 2. Копируем файлы сайта в папку с новой версией.
           cp -r index.html ru en _site/${{ github.ref_name }}/
-          
-          # 3. Перезаписываем главный index.html, чтобы он содержал ссылки на ВСЕ версии, включая новую.
           echo "<h1>Версии сайта:</h1>" > _site/index.html
           echo "<ul>" >> _site/index.html
           gh release list --json tagName --jq '.[] | "<li><a href=\"\(.tagName)/index.html\">\(.tagName)</a></li>"' >> _site/index.html
@@ -47,10 +43,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
+      - name: Upload build artifact for next run
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-build
+          path: ./_site
+          
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
+      - name: Upload Pages artifact for current deployment
         uses: actions/upload-pages-artifact@v3
         with:
           path: './_site'

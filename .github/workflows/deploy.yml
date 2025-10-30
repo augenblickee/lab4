@@ -10,7 +10,6 @@ permissions:
   pages: write
   id-token: write
 
-# Добавляем новую секцию для управления параллельными запусками
 concurrency:
   group: "pages"
   cancel-in-progress: true
@@ -20,18 +19,41 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-          
+    
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # github.ref_name содержит имя тега нашего релиза (например, "v1.0")
+      - name: Create version directory
+        run: mkdir -p ${{ github.ref_name }}
+
+      # Мы копируем все наши HTML-файлы и папки ru/en в новую директорию
+      - name: Move site files into version directory
+        run: |
+          mv index.html ${{ github.ref_name }}/
+          mv ru ${{ github.ref_name }}/
+          mv en ${{ github.ref_name }}/
+
+      # Этот шаг будет генерировать страницу со ссылками на все опубликованные версии
+      # Мы используем 'gh api' для получения списка всех релизов
+      - name: Build index page with links to all versions
+        run: |
+          echo "<h1>Версии сайта:</h1>" > index.html
+          echo "<ul>" >> index.html
+          gh release list --json tagName --jq '.[] | "<li><a href=\"\(.tagName)/index.html\">\(.tagName)</a></li>"' >> index.html
+          echo "</ul>" >> index.html
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          # Теперь мы загружаем ВСЕ содержимое, включая новую корневую index.html и папки с версиями
           path: '.'
 
       - name: Deploy to GitHub Pages

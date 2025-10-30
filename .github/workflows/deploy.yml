@@ -6,41 +6,33 @@ on:
   workflow_dispatch:
 
 permissions:
-  # Права на запись нужны, чтобы экшен мог делать коммиты в ветку gh-pages
   contents: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # Шаг 1: Скачиваем исходный код из ветки main
+      # Шаг 1: Скачиваем исходный код
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Шаг 2: Создаем папку для сборки и копируем туда файлы ТЕКУЩЕЙ версии
+      # Шаг 2: Создаем папку для публикации с текущей версией
       - name: Build current version folder
         run: |
-          # Получаем имя тега релиза (например, v1.6)
           VERSION=${GITHUB_REF##*/}
-          # Создаем папку для сборки и папку для версии внутри нее
           mkdir -p build/$VERSION
-          # Копируем сайт в папку версии
           cp -r en ru index.html build/$VERSION/
       
-      # Шаг 3: Разворачиваем сайт в ветку gh-pages
-      # Этот экшен сделает все за нас: скачает ветку gh-pages, добавит
-      # в нее наши новые файлы, сгенерирует index.html и запушит обратно.
+      # Шаг 3: Публикуем сайт, сохраняя старые версии
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          # Указываем, откуда брать файлы для публикации
+          # Указываем, что публиковать нужно содержимое папки ./build
           publish_dir: ./build
-          # ВАЖНО: Сохраняем все старые файлы в ветке
+          # ВАЖНО: Сохраняем все файлы, которые уже были в ветке gh-pages
           keep_files: true
-          # Генерируем новый index.html со списком всех папок (версий)
-          # Это встроенная функция экшена, очень удобно!
+          # ВАЖНО: Включаем автоматическое создание index.html со списком всех папок (версий)
           enable_jekyll: true
-          # Сообщение для коммита
           commit_message: "Deploy release ${{ github.ref_name }}"
